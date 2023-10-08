@@ -2,7 +2,25 @@ import streamlit as st
 import sqlite3
 from datetime import datetime, date
 import uuid  # for generating unique identifiers
+import base64
 
+def set_background_image(image_path, image_extension):
+    with open(image_path, "rb") as f:
+        base64_image = base64.b64encode(f.read()).decode()
+    
+    st.markdown(
+        f"""
+        <style>
+        .stApp {{
+            background: url(data:image/{image_extension};base64,{base64_image});
+            background-size: cover;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+# Set the background image
+set_background_image("background.jpg", "jpg")
 # Initialize SQLite database
 conn = sqlite3.connect("climbing_data.db")
 c = conn.cursor()
@@ -37,7 +55,7 @@ if 'page' not in st.session_state:
 
 # Streamlit UI
 if st.session_state.page == 'start':
-    st.title("Rock Climbing Tracker")
+    st.title("Climb Tracker")
     gym_options = ['VE Minneapolis', 'VE Bloomington', 'VE St.Paul', 'VE TCB', 'MBP']
     st.session_state.gym_name = st.selectbox("Gym Name", gym_options)
 
@@ -52,7 +70,7 @@ if st.session_state.page == 'start':
         st.experimental_rerun()
 
 elif st.session_state.page == 'enter_climbs':
-    st.title(f"Rock Climbing Tracker - {st.session_state.gym_name} Session")
+    st.title(f"Climb Tracker - {st.session_state.gym_name} Session")
     if st.session_state.gym_name in ['VE Minneapolis', 'VE Bloomington', 'VE St.Paul']:
         grade_options = ['5.6', '5.7', '5.8', '5.9', '5.10-', '5.10+', '5.11-', '5.11+', '5.12-', '5.12+', 'VB', 'V1-2', 'V2-3', 'V4-5', 'V5-6', 'V7-8', 'V9-10', 'V11']
     elif st.session_state.gym_name == 'VE TCB':
