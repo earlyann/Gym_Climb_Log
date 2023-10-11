@@ -1,8 +1,10 @@
 import streamlit as st
 import sqlite3
 from datetime import datetime, date
-import uuid  # for generating unique identifiers
+# import uuid  # for generating unique identifiers
 import base64
+# import streamlit_toggle as tog
+
 
 def set_background_image(image_path, image_extension):
     with open(image_path, "rb") as f:
@@ -28,7 +30,7 @@ if 'climb_name' not in st.session_state:
 if 'grade' not in st.session_state:
     st.session_state.grade = '5.6'  # Default value, you can change this
 if 'grade_judgment' not in st.session_state:
-    st.session_state.grade_judgment = 'Soft'  # Default value
+    st.session_state.grade_judgment = 'On'  # Default value
 if 'num_attempts' not in st.session_state:
     st.session_state.num_attempts = 1  # Default value
 if 'notes' not in st.session_state:
@@ -38,9 +40,6 @@ if 'notes' not in st.session_state:
 if 'form_submitted' not in st.session_state:
     st.session_state.form_submitted = False
 
-# Initialize a new session state variable for hiding the flash message
-if 'hide_flash_message' not in st.session_state:
-    st.session_state.hide_flash_message = False
 
 # Initialize SQLite database
 conn = sqlite3.connect("climbing_data.db")
@@ -58,7 +57,7 @@ c.execute('''CREATE TABLE IF NOT EXISTS climbs
              session_id INTEGER,
              photo BLOB,
              climb_date DATE,
-             climb_name TEXT UNIQUE,
+             climb_name TEXT,
              gym_name TEXT,
              grade TEXT,
              grade_judgment TEXT,
@@ -74,8 +73,6 @@ if 'page' not in st.session_state:
     st.session_state.gym_name = None
     st.session_state.end_session = False  # Initialize 'end_session' state
 
-if 'show_flash_message' not in st.session_state:
-    st.session_state.show_flash_message = False
 
 # Streamlit UI
 if st.session_state.page == 'start':
@@ -121,36 +118,18 @@ elif st.session_state.page == 'enter_climbs':
     if 'sent' not in st.session_state:
         st.session_state.sent = False
 
-    # Use only one st.checkbox for "Sent (Completed)"
-    st.session_state.sent = st.checkbox("Sent (Completed)", value=st.session_state.sent)
+    # Use a checkbox for if the climb was sent
+    st.session_state.sent = st.checkbox("Sent", value=st.session_state.sent)
 
+    # if not st.session_state.climb_name:
+    #     st.session_state.climb_name = str(uuid.uuid4())  # Generate a unique identifier
 
-    if not st.session_state.climb_name:
-        st.session_state.climb_name = str(uuid.uuid4())  # Generate a unique identifier
-
-    # Show flash message if needed
-    if st.session_state.show_flash_message and not st.session_state.hide_flash_message:
-        elapsed_time = datetime.now() - st.session_state.flash_message_time
-        if elapsed_time.total_seconds() < 3:  # Show for 3 seconds
-            st.success("Climb added successfully!")
-        else:
-            st.session_state.show_flash_message = False  # Reset for the next run
-            st.session_state.hide_flash_message = True  # Hide the flash message
-
-    
 
     if st.button("Submit"):
         try:
             c.execute("INSERT INTO climbs (session_id, photo, climb_date, climb_name, gym_name, grade, grade_judgment, num_attempts, sent, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (st.session_state.session_id, file_bytes, climb_date, st.session_state.climb_name, st.session_state.gym_name, st.session_state.grade, st.session_state.grade_judgment, st.session_state.num_attempts, st.session_state.sent, st.session_state.notes))
             conn.commit()
-            
-            # Only update the flash message time if a new climb is successfully added
-            if not st.session_state.show_flash_message:
-                st.session_state.flash_message_time = datetime.now()
-            
-            # Show the flash message
-            st.session_state.show_flash_message = True
             
             # Reset the form
             st.session_state.climb_name = ""
@@ -159,14 +138,13 @@ elif st.session_state.page == 'enter_climbs':
             st.session_state.num_attempts = 1
             st.session_state.notes = ""
             st.session_state.sent = False  # Reset the 'Sent' checkbox
-            st.session_state.form_submitted = True  # Indicate that the form has been submitted
-            st.session_state.hide_flash_message = False  # Reset the flag to show the flash message again
 
-            # Rerun the app to hide the flash message after 3 seconds
+            # Rerun the app to apply the changes
             st.experimental_rerun()
             
         except Exception as e:
             st.error(f"An error occurred: {e}")
+
 
 
     # Use session_state for "End Session" checkbox
@@ -206,7 +184,8 @@ elif st.session_state.page == 'summary':
         start_time = datetime.fromisoformat(times[0])
         end_time = datetime.fromisoformat(times[1])
         duration = (end_time - start_time).seconds
-        st.write(f"Session Length: {duration} seconds")
+        # Write the duration in minutes and seconds
+        st.write(f"Session Length: {duration//60} minutes {duration%60} seconds")
     else:
         st.write("Session Length: N/A")
 
