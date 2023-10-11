@@ -1,9 +1,52 @@
 import streamlit as st
-import sqlite3
+import psycopg2
 from datetime import datetime, date
-# import uuid  # for generating unique identifiers
 import base64
-# import streamlit_toggle as tog
+import streamlit_authenticator as stauth  # Import the authenticator
+import yaml
+from yaml.loader import SafeLoader
+
+# Load the YAML file for authentication
+with open('.streamlit/config.yaml') as file:
+    config = yaml.load(file, Loader=SafeLoader)
+
+# Create the authenticator object
+authenticator = stauth.Authenticate(
+    config['credentials'],
+    config['cookie']['name'],
+    config['cookie']['key'],
+    config['cookie']['expiry_days'],
+    config['preauthorized']
+)
+
+# Render the login widget
+name, authentication_status, username = authenticator.login('Login', 'main')
+
+# If the user is authenticated, proceed with the app
+if authentication_status:
+    authenticator.logout('Logout', 'main')
+# If authentication fails, show an error message
+elif authentication_status == False:
+    st.error('Username/password is incorrect')
+    st.stop()  # Stop the script
+# If the user hasn't entered credentials, show a warning
+elif authentication_status == None:
+    st.warning('Please enter your username and password')
+    st.stop()
+
+
+# Read PostgreSQL secrets
+conn_info = st.secrets["postgres"]
+
+# Connect to PostgreSQL database
+conn = psycopg2.connect(
+    host=conn_info["host"],
+    port=conn_info["port"],
+    dbname=conn_info["dbname"],
+    user=conn_info["user"],
+    password=conn_info["password"],
+)
+c = conn.cursor()
 
 
 def set_background_image(image_path, image_extension):
@@ -40,22 +83,18 @@ if 'notes' not in st.session_state:
 if 'form_submitted' not in st.session_state:
     st.session_state.form_submitted = False
 
-
-# Initialize SQLite database
-conn = sqlite3.connect("climbing_data.db")
-c = conn.cursor()
-
 # Create tables if they don't exist
 c.execute('''CREATE TABLE IF NOT EXISTS sessions
-             (session_id INTEGER PRIMARY KEY AUTOINCREMENT,
-             start_time DATETIME,
-             end_time DATETIME,
+             (session_id SERIAL PRIMARY KEY,
+             username TEXT,
+             start_time TIMESTAMP,
+             end_time TIMESTAMP,
              duration INTEGER)''')
 
 c.execute('''CREATE TABLE IF NOT EXISTS climbs
-             (id INTEGER PRIMARY KEY AUTOINCREMENT,
+             (id SERIAL PRIMARY KEY,
              session_id INTEGER,
-             photo BLOB,
+             photo BYTEA,
              climb_date DATE,
              climb_name TEXT,
              gym_name TEXT,
@@ -66,6 +105,7 @@ c.execute('''CREATE TABLE IF NOT EXISTS climbs
              notes TEXT,
              FOREIGN KEY(session_id) REFERENCES sessions(session_id))''')
 conn.commit()
+
 
 # Initialize session state
 if 'page' not in st.session_state:
@@ -82,13 +122,15 @@ if st.session_state.page == 'start':
 
     if st.button("Start Session"):
         start_time = datetime.now()
-        c.execute("INSERT INTO sessions (start_time) VALUES (?)", (start_time,))
+        c.execute("INSERT INTO sessions (username, start_time) VALUES (%s, %s) RETURNING session_id;", (username, start_time,))
+        session_id = c.fetchone()[0]
         conn.commit()
         st.session_state.page = 'enter_climbs'
-        st.session_state.session_id = c.lastrowid
+        st.session_state.session_id = session_id
         st.session_state.start_time = start_time
         st.success(f"Session started at {start_time}")
         st.experimental_rerun()
+
 
 
 elif st.session_state.page == 'enter_climbs':
@@ -127,14 +169,14 @@ elif st.session_state.page == 'enter_climbs':
 
     if st.button("Submit"):
         try:
-            c.execute("INSERT INTO climbs (session_id, photo, climb_date, climb_name, gym_name, grade, grade_judgment, num_attempts, sent, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            c.execute("INSERT INTO climbs (session_id, photo, climb_date, climb_name, gym_name, grade, grade_judgment, num_attempts, sent, notes) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
                     (st.session_state.session_id, file_bytes, climb_date, st.session_state.climb_name, st.session_state.gym_name, st.session_state.grade, st.session_state.grade_judgment, st.session_state.num_attempts, st.session_state.sent, st.session_state.notes))
             conn.commit()
             
             # Reset the form
             st.session_state.climb_name = ""
             st.session_state.grade = grade_options[0]
-            st.session_state.grade_judgment = "Soft"
+            st.session_state.grade_judgment = "On"
             st.session_state.num_attempts = 1
             st.session_state.notes = ""
             st.session_state.sent = False  # Reset the 'Sent' checkbox
@@ -153,7 +195,7 @@ elif st.session_state.page == 'enter_climbs':
         end_time = datetime.now()
         start_time = st.session_state.start_time  # Retrieve start_time from session_state
         duration = (end_time - start_time).seconds
-        c.execute("UPDATE sessions SET end_time = ?, duration = ? WHERE session_id = ?", (end_time, duration, st.session_state.session_id))
+        c.execute("UPDATE sessions SET end_time = %s, duration = %s WHERE session_id = %s", (end_time, duration, st.session_state.session_id))
         conn.commit()
         st.session_state.page = 'summary'
         st.success(f"Session ended at {end_time}. Duration: {duration} seconds.")
@@ -165,12 +207,12 @@ elif st.session_state.page == 'summary':
     st.header("Session Summary")
 
     # Count of climbs
-    c.execute("SELECT COUNT(*) FROM climbs WHERE session_id = ?", (st.session_state.session_id,))
+    c.execute("SELECT COUNT(*) FROM climbs WHERE session_id = %s", (st.session_state.session_id,))
     count_of_climbs = c.fetchone()[0]
     st.write(f"Total Climbs: {count_of_climbs}")
 
     # Most frequent grade (mode)
-    c.execute("SELECT grade, COUNT(grade) FROM climbs WHERE session_id = ? GROUP BY grade ORDER BY COUNT(grade) DESC LIMIT 1", (st.session_state.session_id,))
+    c.execute("SELECT grade, COUNT(grade) FROM climbs WHERE session_id = %s GROUP BY grade ORDER BY COUNT(grade) DESC LIMIT 1", (st.session_state.session_id,))
     most_frequent_grade = c.fetchone()
     if most_frequent_grade:
         st.write(f"Most Frequent Grade: {most_frequent_grade[0]} (Count: {most_frequent_grade[1]})")
@@ -178,11 +220,11 @@ elif st.session_state.page == 'summary':
         st.write("Most Frequent Grade: N/A")
 
     # Length of session
-    c.execute("SELECT start_time, end_time FROM sessions WHERE session_id = ?", (st.session_state.session_id,))
+    c.execute("SELECT start_time, end_time FROM sessions WHERE session_id = %s", (st.session_state.session_id,))
     times = c.fetchone()
     if times and times[0] and times[1]:
-        start_time = datetime.fromisoformat(times[0])
-        end_time = datetime.fromisoformat(times[1])
+        start_time = times[0]  # No need for fromisoformat
+        end_time = times[1]  # No need for fromisoformat
         duration = (end_time - start_time).seconds
         # Write the duration in minutes and seconds
         st.write(f"Session Length: {duration//60} minutes {duration%60} seconds")
@@ -190,7 +232,7 @@ elif st.session_state.page == 'summary':
         st.write("Session Length: N/A")
 
     # Display the summary here
-    c.execute("SELECT climb_name, grade, grade_judgment FROM climbs WHERE session_id = ?", (st.session_state.session_id,))
+    c.execute("SELECT climb_name, grade, grade_judgment FROM climbs WHERE session_id = %s", (st.session_state.session_id,))
     climbs = c.fetchall()
     for climb in climbs:
         st.write(climb)
@@ -200,3 +242,5 @@ elif st.session_state.page == 'summary':
         st.experimental_rerun()
 
 conn.close()
+
+
