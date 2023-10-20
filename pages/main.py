@@ -5,7 +5,9 @@ import base64
 import yaml
 from yaml.loader import SafeLoader
 import session
-from db_singleton import get_db, create_tables_if_not_exist, close_db
+from db_singleton import get_db, create_tables_if_not_exist, close_db, drop_tables
+from analytics import show_analytics_page
+
 
 # Function to check password
 def check_password():
@@ -54,6 +56,7 @@ def initialize_session_state():
     st.session_state.setdefault('num_attempts', 1)
     st.session_state.setdefault('notes', '')
     st.session_state.setdefault('form_submitted', False)
+    st.session_state.setdefault('username', None)
 
 # Initialize session state
 initialize_session_state()
@@ -64,6 +67,9 @@ with st.sidebar:
     st.session_state['page'] = st.radio("Choose Page", page_options, index=page_options.index(st.session_state.get('page', 'Session')))
 
 # Main Streamlit app starts here
+# Initialize session state
+initialize_session_state()
+
 if st.session_state['page'] == 'Session':
     username = st.session_state.get("username", None)  # Retrieve the username from session state
     if username:
@@ -71,7 +77,7 @@ if st.session_state['page'] == 'Session':
     else:
         st.error("Username not found. Please log in again.")
 elif st.session_state['page'] == 'Analytics':
-    st.write("Analytics will be displayed here.")
+    show_analytics_page()
 
 # Function to set background image
 def set_background_image(image_path, image_extension):
@@ -91,3 +97,4 @@ def set_background_image(image_path, image_extension):
 
 # Set the background image
 set_background_image("background.jpg", "jpg")
+

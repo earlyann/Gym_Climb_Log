@@ -22,6 +22,7 @@ def get_db():
 
 def create_tables_if_not_exist(cursor, connection):
     try:
+        # Create new tables
         cursor.execute('''CREATE TABLE IF NOT EXISTS sessions
                         (session_id SERIAL PRIMARY KEY,
                         username TEXT,
@@ -42,7 +43,9 @@ def create_tables_if_not_exist(cursor, connection):
                         num_attempts INTEGER,
                         sent BOOLEAN,
                         notes TEXT,
+                        star_rating INT,
                         FOREIGN KEY(session_id) REFERENCES sessions(session_id))''')
+
         connection.commit()
     except Exception as e:
         # If an error occurs, rollback the transaction
@@ -66,3 +69,4 @@ def close_db():
         _db_instance['cursor'].close()
         _db_instance['conn'].close()
         _db_instance = None
+

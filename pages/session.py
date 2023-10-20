@@ -1,6 +1,7 @@
 import streamlit as st
 from datetime import datetime
 from db_singleton import get_db, create_tables_if_not_exist, close_db
+from streamlit_star_rating import st_star_rating
 
 # Function to initialize session state variables
 def initialize_session_state():
@@ -16,6 +17,7 @@ def initialize_session_state():
     st.session_state.setdefault('sent', False)
     st.session_state.setdefault('start_time', datetime.now())
     st.session_state.setdefault('end_session', False)
+    st.session_state.setdefault('star_rating', 0)  # Initialize star_rating
 
 # Display the app here
 def app(conn, c, username):
@@ -67,14 +69,26 @@ def enter_climbs(conn, c):
     st.session_state.grade_judgment = st.selectbox("Grade Judgment", ["Soft", "On", "Hard"], index=["Soft", "On", "Hard"].index(st.session_state.grade_judgment))
     st.session_state.num_attempts = st.number_input("Number of Attempts", min_value=1, max_value=100, step=1, value=st.session_state.num_attempts)
     st.session_state.notes = st.text_input("Notes", value=st.session_state.notes)
+    # st.session_state.star_rating = st.number_input("Star Rating", min_value=0, max_value=5, step=1, value=st.session_state.star_rating)
     climb_date = st.session_state.start_time.date()
 
     st.session_state.sent = st.checkbox("Sent", value=st.session_state.sent)
 
+     # Add star rating component
+    stars = st_star_rating(
+        label="",
+        maxValue=5,
+        defaultValue=0,
+        key="climb_rating",
+        customCSS="div {background: black; padding: 5px; border-radius: 10px}"
+    )
+    # Update session state with the collected star rating
+    st.session_state.star_rating = stars
+
     if st.button("Submit", key='submit_button'):
         try:
-            c.execute("INSERT INTO climbs (session_id, photo, climb_date, climb_name, gym_name, grade, grade_judgment, num_attempts, sent, notes) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                    (st.session_state.session_id, file_bytes, climb_date, st.session_state.climb_name, st.session_state.gym_name, st.session_state.grade, st.session_state.grade_judgment, st.session_state.num_attempts, st.session_state.sent, st.session_state.notes))
+            c.execute("INSERT INTO climbs (session_id, photo, climb_date, climb_name, gym_name, grade, grade_judgment, num_attempts, sent, notes, star_rating) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    (st.session_state.session_id, file_bytes, climb_date, st.session_state.climb_name, st.session_state.gym_name, st.session_state.grade, st.session_state.grade_judgment, st.session_state.num_attempts, st.session_state.sent, st.session_state.notes, st.session_state.star_rating))
             conn.commit()
                 
             st.session_state.climb_name = ""
@@ -83,6 +97,7 @@ def enter_climbs(conn, c):
             st.session_state.num_attempts = 1
             st.session_state.notes = ""
             st.session_state.sent = False
+            st.session_state.star_rating = 0
             st.rerun()
         except Exception as e:
             st.error(f"An error occurred: {e}")
@@ -97,39 +112,56 @@ def enter_climbs(conn, c):
         st.session_state['session_page'] = 'summary'
         st.session_state.end_session = False
         st.rerun()
-        close_db()
 
 def session_summary(conn, c):
     username = st.session_state['username']
     st.header("Session Summary")
-    
+
+    # Create columns for better layout
+    col1, col2 = st.columns(2)
+
+    # Query and display the total number of climbs
     c.execute("SELECT COUNT(*) FROM climbs WHERE session_id = %s", (st.session_state.session_id,))
     count_of_climbs = c.fetchone()[0]
-    st.write(f"Total Climbs: {count_of_climbs}")
-    
+    col1.markdown(f"**Total Climbs:** {count_of_climbs}")
+
+    # Query and display the most frequent grade
     c.execute("SELECT grade, COUNT(grade) FROM climbs WHERE session_id = %s GROUP BY grade ORDER BY COUNT(grade) DESC LIMIT 1", (st.session_state.session_id,))
     most_frequent_grade = c.fetchone()
     if most_frequent_grade:
-        st.write(f"Most Frequent Grade: {most_frequent_grade[0]} (Count: {most_frequent_grade[1]})")
+        col1.markdown(f"**Most Frequent Grade:** {most_frequent_grade[0]} (Count: {most_frequent_grade[1]})")
     else:
-        st.write("Most Frequent Grade: N/A")
+        col1.markdown("**Most Frequent Grade:** N/A")
     
+    # Query and display the average number of attempts
+    c.execute("SELECT AVG(num_attempts) FROM climbs WHERE session_id = %s", (st.session_state.session_id,))
+    avg_attempts = c.fetchone()[0]
+    if avg_attempts:
+        col1.markdown(f"**Average Attempts:** {round(avg_attempts, 2)}")
+    else:
+        col1.markdown("**Average Attempts:** N/A")
+
+    # Query and display the session length
     c.execute("SELECT start_time, end_time FROM sessions WHERE session_id = %s", (st.session_state.session_id,))
     times = c.fetchone()
     if times and times[0] and times[1]:
         start_time = times[0]
         end_time = times[1]
         duration = (end_time - start_time).seconds
-        st.write(f"Session Length: {duration//60} minutes {duration%60} seconds")
+        col1.markdown(f"**Session Length:** {duration//60} minutes {duration%60} seconds")
     else:
-        st.write("Session Length: N/A")
-    
-    c.execute("SELECT climb_name, grade, grade_judgment FROM climbs WHERE session_id = %s", (st.session_state.session_id,))
+        col1.markdown("**Session Length:** N/A")
+
+    # Query and display the list of climbs with star ratings
+    c.execute("SELECT climb_name, grade, grade_judgment, star_rating FROM climbs WHERE session_id = %s", (st.session_state.session_id,))
     climbs = c.fetchall()
+    st.subheader("List of Climbs")
     for climb in climbs:
-        st.write(climb)
-    
+        st.markdown(f"- **Climb Name:** {climb[0]}, **Grade:** {climb[1]}, **Judgment:** {climb[2]}, **Star Rating:** {climb[3]}")
+    # Button to go back to the start
     if st.button("Go Back to Start", key='go_back_button'):
+        st.session_state['session_id'] = None
         st.session_state['session_page'] = 'choose_gym'
-        st.rerun()  
+        st.rerun()
         close_db()
+
