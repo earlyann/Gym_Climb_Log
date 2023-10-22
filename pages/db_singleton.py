@@ -44,6 +44,7 @@ def create_tables_if_not_exist(cursor, connection):
                         sent BOOLEAN,
                         notes TEXT,
                         star_rating INT,
+                        type TEXT,  -- New column
                         FOREIGN KEY(session_id) REFERENCES sessions(session_id))''')
 
         connection.commit()

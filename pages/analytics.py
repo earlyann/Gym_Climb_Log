@@ -37,7 +37,8 @@ def show_analytics_page():
     # Check if 'username' exists and is not None
     if 'username' in st.session_state and st.session_state['username'] is not None:
         username = st.session_state['username']
-        
+        st.session_state['username'] = username  # Explicitly set username
+ 
         # Fetch session data
         session_data = get_session_data(username, c)
         

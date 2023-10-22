@@ -20,9 +20,15 @@ def initialize_session_state():
     st.session_state.setdefault('star_rating', 0)  # Initialize star_rating
 
 # Display the app here
-def app(conn, c, username):
+def app(conn, c, username=None):
     initialize_session_state()
-    st.session_state['username'] = username
+    if username:
+        st.session_state['username'] = username
+    elif 'username' in st.session_state and st.session_state['username']:
+        username = st.session_state['username']
+    else:
+        st.error("Username not found. Please log in again.")
+        return
     
     if st.session_state['session_page'] == 'choose_gym':
         choose_gym(conn, c)
@@ -85,12 +91,17 @@ def enter_climbs(conn, c):
     # Update session state with the collected star rating
     st.session_state.star_rating = stars
 
+    # Determine the type based on the grade
+    climb_type = 'Sport' if st.session_state.grade.startswith('5') else 'Boulder'
+
     if st.button("Submit", key='submit_button'):
         try:
-            c.execute("INSERT INTO climbs (session_id, photo, climb_date, climb_name, gym_name, grade, grade_judgment, num_attempts, sent, notes, star_rating) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                    (st.session_state.session_id, file_bytes, climb_date, st.session_state.climb_name, st.session_state.gym_name, st.session_state.grade, st.session_state.grade_judgment, st.session_state.num_attempts, st.session_state.sent, st.session_state.notes, st.session_state.star_rating))
+            # Execute the SQL query
+            c.execute("INSERT INTO climbs (session_id, photo, climb_date, climb_name, gym_name, grade, grade_judgment, num_attempts, sent, notes, star_rating, type) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    (st.session_state.session_id, file_bytes, climb_date, st.session_state.climb_name, st.session_state.gym_name, st.session_state.grade, st.session_state.grade_judgment, st.session_state.num_attempts, st.session_state.sent, st.session_state.notes, st.session_state.star_rating, climb_type))
             conn.commit()
-                
+
+            # Reset session state variables
             st.session_state.climb_name = ""
             st.session_state.grade = grade_options[0]
             st.session_state.grade_judgment = "On"
@@ -100,7 +111,9 @@ def enter_climbs(conn, c):
             st.session_state.star_rating = 0
             st.rerun()
         except Exception as e:
+            # Debugging Step 2: Print exception details
             st.error(f"An error occurred: {e}")
+
 
     st.session_state.end_session = st.checkbox("End Session", value=st.session_state.end_session)
     if st.session_state.end_session:

@@ -7,6 +7,18 @@ from yaml.loader import SafeLoader
 import session
 from db_singleton import get_db, create_tables_if_not_exist, close_db, drop_tables
 from analytics import show_analytics_page
+import hashlib  # Import the hashlib library
+
+# Function to hash a password
+def hash_password(password):
+    # Create a new sha256 hash object
+    sha = hashlib.sha256()
+    
+    # Update the hash object with the bytes of the password
+    sha.update(password.encode())
+    
+    # Return the hexadecimal digest of the password
+    return sha.hexdigest()
 
 
 # Function to check password
@@ -21,9 +33,13 @@ def check_password():
         entered_password = st.session_state["password"]
         stored_password = st.secrets["passwords"].get(st.session_state["username"], "")
         
+        # Hash the entered password
+        hashed_entered_password = hash_password(entered_password)
+        
         # Use HMAC to verify the password
-        if hmac.compare_digest(entered_password, stored_password):
+        if hmac.compare_digest(hashed_entered_password, stored_password):
             st.session_state["password_correct"] = True
+            st.session_state["username"] = st.session_state["username"]  # Store username in session state
             del st.session_state["password"]
         else:
             st.session_state["password_correct"] = False
@@ -66,16 +82,13 @@ with st.sidebar:
     page_options = ['Session', 'Analytics']
     st.session_state['page'] = st.radio("Choose Page", page_options, index=page_options.index(st.session_state.get('page', 'Session')))
 
-# Main Streamlit app starts here
-# Initialize session state
-initialize_session_state()
-
 if st.session_state['page'] == 'Session':
     username = st.session_state.get("username", None)  # Retrieve the username from session state
     if username:
         session.app(conn, c, username)  # Pass the username to the app function
     else:
         st.error("Username not found. Please log in again.")
+
 elif st.session_state['page'] == 'Analytics':
     show_analytics_page()
 
@@ -97,4 +110,11 @@ def set_background_image(image_path, image_extension):
 
 # Set the background image
 set_background_image("background.jpg", "jpg")
+
+
+
+
+
+
+
 
