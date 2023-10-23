@@ -8,18 +8,45 @@ import session
 from db_singleton import get_db, create_tables_if_not_exist, close_db, drop_tables
 from analytics import show_analytics_page
 import hashlib  # Import the hashlib library
+import boto3
+import json
+from botocore.exceptions import ClientError
+import os  # Import the os module
+
+def get_secret(username=None):
+    secret_name = "deploy/gymlog/persPW"
+    region_name = "us-east-2"  # Moved outside of the if block
+
+    if username:
+        secret_name = f"deploy/gymlog/persPW/{username}"  # Modify as per your secret naming convention
+
+    # Retrieve AWS credentials from Streamlit secrets
+    aws_access_key_id = os.environ.get("AWS_ACCESS_KEY_ID")
+    aws_secret_access_key = os.environ.get("AWS_SECRET_ACCESS_KEY")
+
+    session = boto3.session.Session(
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        region_name=region_name
+    )
+    client = session.client(
+        service_name='secretsmanager',
+        region_name=region_name
+    )
+
+    try:
+        get_secret_value_response = client.get_secret_value(SecretId=secret_name)
+    except ClientError as e:
+        raise e
+
+    secret = get_secret_value_response['SecretString']
+    return json.loads(secret)
 
 # Function to hash a password
 def hash_password(password):
-    # Create a new sha256 hash object
     sha = hashlib.sha256()
-    
-    # Update the hash object with the bytes of the password
     sha.update(password.encode())
-    
-    # Return the hexadecimal digest of the password
     return sha.hexdigest()
-
 
 # Function to check password
 def check_password():
@@ -31,15 +58,19 @@ def check_password():
 
     def password_entered():
         entered_password = st.session_state["password"]
-        stored_password = st.secrets["passwords"].get(st.session_state["username"], "")
+        username = st.session_state["username"]
         
-        # Hash the entered password
+        # Fetch the stored password for the given username from AWS Secrets Manager
+        try:
+            stored_password = get_secret(username)
+        except ClientError:
+            stored_password = ""
+        
         hashed_entered_password = hash_password(entered_password)
         
-        # Use HMAC to verify the password
         if hmac.compare_digest(hashed_entered_password, stored_password):
             st.session_state["password_correct"] = True
-            st.session_state["username"] = st.session_state["username"]  # Store username in session state
+            st.session_state["username"] = username
             del st.session_state["password"]
         else:
             st.session_state["password_correct"] = False
@@ -63,7 +94,7 @@ conn, c = db_instance['conn'], db_instance['cursor']
 # Create tables if they don't exist
 create_tables_if_not_exist(c, conn)
 
-# Function to initialize session state variables
+# Initialize session state
 def initialize_session_state():
     st.session_state.setdefault('page', 'Session')
     st.session_state.setdefault('climb_name', '')
@@ -74,7 +105,6 @@ def initialize_session_state():
     st.session_state.setdefault('form_submitted', False)
     st.session_state.setdefault('username', None)
 
-# Initialize session state
 initialize_session_state()
 
 # Sidebar for Logout and Toggle between Start Session and Analytics
@@ -83,16 +113,15 @@ with st.sidebar:
     st.session_state['page'] = st.radio("Choose Page", page_options, index=page_options.index(st.session_state.get('page', 'Session')))
 
 if st.session_state['page'] == 'Session':
-    username = st.session_state.get("username", None)  # Retrieve the username from session state
+    username = st.session_state.get("username", None)
     if username:
-        session.app(conn, c, username)  # Pass the username to the app function
+        session.app(conn, c, username)
     else:
         st.error("Username not found. Please log in again.")
-
 elif st.session_state['page'] == 'Analytics':
     show_analytics_page()
 
-# Function to set background image
+# Set the background image
 def set_background_image(image_path, image_extension):
     with open(image_path, "rb") as f:
         base64_image = base64.b64encode(f.read()).decode()
@@ -108,13 +137,4 @@ def set_background_image(image_path, image_extension):
         unsafe_allow_html=True,
     )
 
-# Set the background image
 set_background_image("background.jpg", "jpg")
-
-
-
-
-
-
-
-

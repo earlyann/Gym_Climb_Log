@@ -1,14 +1,44 @@
-# db_singleton.py
-
 import psycopg2
 import streamlit as st
+import boto3
+import json
+from botocore.exceptions import ClientError
+import os  # Import the os module
+
+# Moved get_secret function here to avoid circular import
+def get_db_secret():
+    secret_name = "deploy/gymlog"
+    region_name = "us-east-2"
+
+    aws_access_key_id = os.environ.get("AWS_ACCESS_KEY_ID")
+    aws_secret_access_key = os.environ.get("AWS_SECRET_ACCESS_KEY")
+
+    session = boto3.session.Session(
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        region_name=region_name
+    )
+    client = session.client(
+        service_name='secretsmanager',
+        region_name=region_name
+    )
+
+    try:
+        get_secret_value_response = client.get_secret_value(SecretId=secret_name)
+    except ClientError as e:
+        raise e
+
+    secret = get_secret_value_response['SecretString']
+    # st.write(secret)  # Comment this line out for production
+    return json.loads(secret)
 
 _db_instance = None
 
 def get_db():
     global _db_instance
     if _db_instance is None:
-        conn_info = st.secrets["postgres"]
+        conn_info = get_db_secret()  # Use get_db_secret() function here
+
         conn = psycopg2.connect(
             host=conn_info["host"],
             port=conn_info["port"],
