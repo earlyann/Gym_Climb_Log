@@ -2,45 +2,10 @@ import hmac
 import streamlit as st
 from datetime import datetime
 import base64
-import yaml
-from yaml.loader import SafeLoader
+import hashlib
 import session
 from db_singleton import get_db, create_tables_if_not_exist, close_db, drop_tables
 from analytics import show_analytics_page
-import hashlib  # Import the hashlib library
-import boto3
-import json
-from botocore.exceptions import ClientError
-import os  # Import the os module
-
-def get_secret(username=None):
-    secret_name = "deploy/gymlog/persPW"
-    region_name = "us-east-2"  # Moved outside of the if block
-
-    if username:
-        secret_name = f"deploy/gymlog/persPW/{username}"  # Modify as per your secret naming convention
-
-    # Retrieve AWS credentials from Streamlit secrets
-    aws_access_key_id = os.environ.get("AWS_ACCESS_KEY_ID")
-    aws_secret_access_key = os.environ.get("AWS_SECRET_ACCESS_KEY")
-
-    session = boto3.session.Session(
-        aws_access_key_id=aws_access_key_id,
-        aws_secret_access_key=aws_secret_access_key,
-        region_name=region_name
-    )
-    client = session.client(
-        service_name='secretsmanager',
-        region_name=region_name
-    )
-
-    try:
-        get_secret_value_response = client.get_secret_value(SecretId=secret_name)
-    except ClientError as e:
-        raise e
-
-    secret = get_secret_value_response['SecretString']
-    return json.loads(secret)
 
 # Function to hash a password
 def hash_password(password):
@@ -60,10 +25,10 @@ def check_password():
         entered_password = st.session_state["password"]
         username = st.session_state["username"]
         
-        # Fetch the stored password for the given username from AWS Secrets Manager
+        # Fetch the stored password for the given username from Streamlit secrets
         try:
-            stored_password = get_secret(username)
-        except ClientError:
+            stored_password = st.secrets["passwords"][username]
+        except KeyError:
             stored_password = ""
         
         hashed_entered_password = hash_password(entered_password)

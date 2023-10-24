@@ -1,43 +1,13 @@
 import psycopg2
 import streamlit as st
-import boto3
-import json
-from botocore.exceptions import ClientError
-import os  # Import the os module
-
-# Moved get_secret function here to avoid circular import
-def get_db_secret():
-    secret_name = "deploy/gymlog"
-    region_name = "us-east-2"
-
-    aws_access_key_id = os.environ.get("AWS_ACCESS_KEY_ID")
-    aws_secret_access_key = os.environ.get("AWS_SECRET_ACCESS_KEY")
-
-    session = boto3.session.Session(
-        aws_access_key_id=aws_access_key_id,
-        aws_secret_access_key=aws_secret_access_key,
-        region_name=region_name
-    )
-    client = session.client(
-        service_name='secretsmanager',
-        region_name=region_name
-    )
-
-    try:
-        get_secret_value_response = client.get_secret_value(SecretId=secret_name)
-    except ClientError as e:
-        raise e
-
-    secret = get_secret_value_response['SecretString']
-    # st.write(secret)  # Comment this line out for production
-    return json.loads(secret)
 
 _db_instance = None
 
 def get_db():
     global _db_instance
     if _db_instance is None:
-        conn_info = get_db_secret()  # Use get_db_secret() function here
+        # Retrieve database connection information from Streamlit secrets
+        conn_info = st.secrets["postgres"]
 
         conn = psycopg2.connect(
             host=conn_info["host"],
@@ -79,7 +49,7 @@ def create_tables_if_not_exist(cursor, connection):
 
         connection.commit()
     except Exception as e:
-        # If an error occurs, rollback the transaction
+            # If an error occurs, rollback the transaction
         connection.rollback()
         print(f"An error occurred: {e}")
 
@@ -93,9 +63,9 @@ def drop_tables(cursor, connection):
         # If an error occurs, rollback the transaction
         connection.rollback()
         print(f"An error occurred while dropping tables: {e}")
-        
+            
 def close_db():
-    global _db_instance
+     global _db_instance
     if _db_instance is not None:
         _db_instance['cursor'].close()
         _db_instance['conn'].close()
