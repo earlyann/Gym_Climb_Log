@@ -57,6 +57,10 @@ def choose_gym(conn, c):
         st.rerun()
 
 def enter_climbs(conn, c):
+    # Check if 'start_time' is initialized in session_state
+    if 'start_time' not in st.session_state:
+        st.error("Session start time not initialized. Please start a new session.")
+        return
     username = st.session_state['username']
     if st.session_state.gym_name in ['VE Minneapolis', 'VE Bloomington', 'VE St.Paul']:
         grade_options = ['5.6', '5.7', '5.8', '5.9', '5.10-', '5.10+', '5.11-', '5.11+', '5.12-', '5.12+', 'VB', 'V1-2', 'V2-3', 'V4-5', 'V5-6', 'V7-8', 'V9-10', 'V11']
