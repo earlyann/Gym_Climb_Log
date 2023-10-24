@@ -65,7 +65,7 @@ def drop_tables(cursor, connection):
         print(f"An error occurred while dropping tables: {e}")
             
 def close_db():
-     global _db_instance
+    global _db_instance
     if _db_instance is not None:
         _db_instance['cursor'].close()
         _db_instance['conn'].close()
