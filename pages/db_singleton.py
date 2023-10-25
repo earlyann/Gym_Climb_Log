@@ -75,3 +75,54 @@ def close_db():
         _db_instance['conn'].close()
         _db_instance = None
 
+def create_tables_if_not_exist(cursor, connection):
+    try:
+        # Create new tables
+        cursor.execute('''CREATE TABLE IF NOT EXISTS sessions
+                        (session_id SERIAL PRIMARY KEY,
+                        username TEXT,
+                        start_time TIMESTAMP,
+                        end_time TIMESTAMP,
+                        gym_name TEXT,
+                        duration INTEGER)''')
+
+        cursor.execute('''CREATE TABLE IF NOT EXISTS climbs
+                        (id SERIAL PRIMARY KEY,
+                        session_id INTEGER,
+                        photo BYTEA,
+                        climb_date DATE,
+                        climb_name TEXT,
+                        gym_name TEXT,
+                        grade TEXT,
+                        grade_judgment TEXT,
+                        num_attempts INTEGER,
+                        sent BOOLEAN,
+                        notes TEXT,
+                        star_rating INT,
+                        type TEXT,  -- New column
+                        FOREIGN KEY(session_id) REFERENCES sessions(session_id))''')
+
+        connection.commit()
+    except Exception as e:
+            # If an error occurs, rollback the transaction
+        connection.rollback()
+        print(f"An error occurred: {e}")
+
+def drop_tables(cursor, connection):
+    try:
+        cursor.execute("DROP TABLE IF EXISTS climbs CASCADE;")
+        cursor.execute("DROP TABLE IF EXISTS sessions CASCADE;")
+        connection.commit()
+        print("Tables 'climbs' and 'sessions' dropped successfully.")
+    except Exception as e:
+        # If an error occurs, rollback the transaction
+        connection.rollback()
+        print(f"An error occurred while dropping tables: {e}")
+            
+def close_db():
+    global _db_instance
+    if _db_instance is not None:
+        _db_instance['cursor'].close()
+        _db_instance['conn'].close()
+        _db_instance = None
+
