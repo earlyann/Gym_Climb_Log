@@ -55,6 +55,7 @@ def choose_gym(conn, c):
     if st.button("Start Session"):
         st.session_state['session_page'] = 'enter_climbs'
         st.rerun()
+        close_db()
 
 def enter_climbs(conn, c):
     # Check if 'start_time' is initialized in session_state
@@ -119,6 +120,7 @@ def enter_climbs(conn, c):
         st.session_state['session_page'] = 'summary'
         st.session_state.end_session = False
         st.rerun()
+        close_db()
 
 def session_summary(conn, c):
     username = st.session_state['username']

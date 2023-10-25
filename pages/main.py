@@ -6,12 +6,7 @@ import hashlib
 import session
 from db_singleton import get_db, create_tables_if_not_exist, close_db, drop_tables
 from analytics import show_analytics_page
-
 import os
-
-print("Current Working Directory:", os.getcwd())
-print("\nFiles in Current Directory:\n")
-print(os.listdir('.'))
 
 # Function to hash a password
 def hash_password(password):
@@ -64,6 +59,7 @@ conn, c = db_instance['conn'], db_instance['cursor']
 
 # Create tables if they don't exist
 create_tables_if_not_exist(c, conn)
+#close_db()
 
 # Initialize session state
 def initialize_session_state():
@@ -99,12 +95,6 @@ import os
 # Set the background image
 def set_background_image(image_path, image_extension):
     try:
-        # Print the current working directory
-        st.write("Current Working Directory:", os.getcwd())
-        
-        # List files in the current directory
-        st.write("Files in Current Directory:", os.listdir('.'))
-        
         # Open the image file
         with open(image_path, "rb") as f:
             base64_image = base64.b64encode(f.read()).decode()

@@ -69,3 +69,4 @@ def show_analytics_page():
             fig_weekly_sessions.update_xaxes(type='category')
             
             st.plotly_chart(fig_weekly_sessions)
+            close_db()

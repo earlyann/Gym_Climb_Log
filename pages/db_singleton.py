@@ -1,5 +1,6 @@
 import psycopg2
 import streamlit as st
+import atexit  
 
 _db_instance = None
 
@@ -18,6 +19,9 @@ def get_db():
         )
         c = conn.cursor()
         _db_instance = {'conn': conn, 'cursor': c}
+
+        # Register close_db to be called when the application terminates
+        atexit.register(close_db)
     return _db_instance
 
 def create_tables_if_not_exist(cursor, connection):
