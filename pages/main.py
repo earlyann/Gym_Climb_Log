@@ -7,6 +7,12 @@ import session
 from db_singleton import get_db, create_tables_if_not_exist, close_db, drop_tables
 from analytics import show_analytics_page
 
+import os
+
+print("Current Working Directory:", os.getcwd())
+print("\nFiles in Current Directory:\n")
+print(os.listdir('.'))
+
 # Function to hash a password
 def hash_password(password):
     sha = hashlib.sha256()
@@ -88,20 +94,37 @@ if st.session_state['page'] == 'Session':
 elif st.session_state['page'] == 'Analytics':
     show_analytics_page()
 
+import os
+
 # Set the background image
 def set_background_image(image_path, image_extension):
-    with open(image_path, "rb") as f:
-        base64_image = base64.b64encode(f.read()).decode()
-    st.markdown(
-        f"""
-        <style>
-        .stApp {{
-            background: url(data:image/{image_extension};base64,{base64_image});
-            background-size: cover;
-        }}
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+    try:
+        # Print the current working directory
+        st.write("Current Working Directory:", os.getcwd())
+        
+        # List files in the current directory
+        st.write("Files in Current Directory:", os.listdir('.'))
+        
+        # Open the image file
+        with open(image_path, "rb") as f:
+            base64_image = base64.b64encode(f.read()).decode()
+        
+        # Set the background image
+        st.markdown(
+            f"""
+            <style>
+            .stApp {{
+                background: url(data:image/{image_extension};base64,{base64_image});
+                background-size: cover;
+            }}
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+    except FileNotFoundError:
+        st.error(f"File {image_path} not found.")
+    except Exception as e:
+        st.error(f"An error occurred: {e}")
 
+# Call the function
 set_background_image("background.jpg", "jpg")
