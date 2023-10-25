@@ -2,7 +2,4 @@ plotly==5.17.0
 pandas==2.1.0  
 streamlit==1.27.2  
 PyYAML==6.0.1
-boto3==1.28.68
-botocore==1.31.68
 psycopg2-binary==2.9.1
-st-star-rating==0.0.6

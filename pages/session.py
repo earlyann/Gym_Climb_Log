@@ -1,7 +1,6 @@
 import streamlit as st
 from datetime import datetime
 from db_singleton import get_db, create_tables_if_not_exist, close_db
-from streamlit_star_rating import st_star_rating
 
 # Function to initialize session state variables
 def initialize_session_state():
@@ -13,11 +12,12 @@ def initialize_session_state():
     st.session_state.setdefault('climb_name', '')
     st.session_state.setdefault('grade_judgment', 'On')
     st.session_state.setdefault('num_attempts', 1)
+    st.session_state.setdefault('star_rating', 0) 
     st.session_state.setdefault('notes', '')
     st.session_state.setdefault('sent', False)
     st.session_state.setdefault('start_time', datetime.now())
     st.session_state.setdefault('end_session', False)
-    st.session_state.setdefault('star_rating', 0)  # Initialize star_rating
+     # Initialize star_rating
 
 # Display the app here
 def app(conn, c, username=None):
@@ -78,22 +78,12 @@ def enter_climbs(conn, c):
     st.session_state.grade = st.selectbox("Grade", grade_options, index=grade_options.index(st.session_state.grade))
     st.session_state.grade_judgment = st.selectbox("Grade Judgment", ["Soft", "On", "Hard"], index=["Soft", "On", "Hard"].index(st.session_state.grade_judgment))
     st.session_state.num_attempts = st.number_input("Number of Attempts", min_value=1, max_value=100, step=1, value=st.session_state.num_attempts)
+    st.session_state.star_rating = st.slider("Star Rating", min_value=0, max_value=5, step=1, value=st.session_state.star_rating)
     st.session_state.notes = st.text_input("Notes", value=st.session_state.notes)
     # st.session_state.star_rating = st.number_input("Star Rating", min_value=0, max_value=5, step=1, value=st.session_state.star_rating)
     climb_date = st.session_state.start_time.date()
 
     st.session_state.sent = st.checkbox("Sent", value=st.session_state.sent)
-
-     # Add star rating component
-    stars = st_star_rating(
-        label="",
-        maxValue=5,
-        defaultValue=0,
-        key="climb_rating",
-        customCSS="div {background: black; padding: 5px; border-radius: 10px}"
-    )
-    # Update session state with the collected star rating
-    st.session_state.star_rating = stars
 
     # Determine the type based on the grade
     climb_type = 'Sport' if st.session_state.grade.startswith('5') else 'Boulder'

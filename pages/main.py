@@ -66,6 +66,8 @@ def initialize_session_state():
     st.session_state.setdefault('grade', '5.6')
     st.session_state.setdefault('grade_judgment', 'On')
     st.session_state.setdefault('num_attempts', 1)
+    st.session_state.setdefault('sent', False)
+    st.session_state.setdefault('star_rating', 0)
     st.session_state.setdefault('notes', '')
     st.session_state.setdefault('form_submitted', False)
     st.session_state.setdefault('username', None)
