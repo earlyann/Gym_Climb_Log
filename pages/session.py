@@ -22,6 +22,7 @@ def initialize_session_state():
 # Display the app here
 def app(conn, c, username=None):
     initialize_session_state()
+    custom_css()
     if username:
         st.session_state['username'] = username
     elif 'username' in st.session_state and st.session_state['username']:
@@ -174,3 +175,22 @@ def session_summary(conn, c):
         st.rerun()
         close_db()
 
+def custom_css():
+    st.markdown(
+        """
+        <style>
+            /* Change the slider line thickness and color */
+            div[data-baseweb="slider"] > div > div {
+                height: 8px !important;
+                background-color: yellow !important;
+            }
+            /* Change the slider thumb size and color */
+            div[role="slider"] {
+                width: 20px !important;
+                height: 20px !important;
+                background-color: yellow !important;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
